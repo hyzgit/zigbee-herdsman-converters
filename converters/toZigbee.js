@@ -1013,6 +1013,14 @@ const converters = {
 
             await entity.write('genBasic', {0xFFF0: {value: payload[0], type: 0x41}}, options.xiaomi);
             await entity.write('genBasic', {0xFFF0: {value: payload[1], type: 0x41}}, options.xiaomi);
+            return {state: {power_outage_memory: value}};
+        },
+    },
+    ZNCZ04LM_power_outage_memory: {
+        key: ['power_outage_memory'],
+        convertSet: async (entity, key, value, meta) => {
+            await entity.write('aqaraOpple', {0x0201: {value: value ? 1 : 0, type: 0x10}}, options.xiaomi);
+            return {state: {power_outage_memory: value}};
         },
     },
     xiaomi_switch_operation_mode: {
@@ -1402,14 +1410,28 @@ const converters = {
                 value = 'on';
             }
 
+            let supports = {colorTemperature: false, colorXY: false};
+            if (entity.constructor.name === 'Endpoint' && entity.supportsInputCluster('lightingColorCtrl')) {
+                const readResult = await entity.read('lightingColorCtrl', ['colorCapabilities']);
+                supports = {
+                    colorTemperature: (readResult.colorCapabilities & 1<<4) > 0,
+                    colorXY: (readResult.colorCapabilities & 1<<3) > 0,
+                };
+            } else if (entity.constructor.name === 'Group') {
+                supports = {colorTemperature: true, colorXY: true};
+            }
+
             if (value === 'off') {
                 await entity.write('genOnOff', {0x4003: {value: 0x00, type: 0x30}});
             } else if (value === 'recover') {
                 await entity.write('genOnOff', {0x4003: {value: 0xff, type: 0x30}});
                 await entity.write('genLevelCtrl', {0x4000: {value: 0xff, type: 0x20}});
 
-                if (entity.supportsInputCluster('lightingColorCtrl')) {
+                if (supports.colorTemperature) {
                     await entity.write('lightingColorCtrl', {0x4010: {value: 0xffff, type: 0x21}});
+                }
+
+                if (supports.colorXY) {
                     await entity.write('lightingColorCtrl', {0x0003: {value: 0xffff, type: 0x21}}, options.hue);
                     await entity.write('lightingColorCtrl', {0x0004: {value: 0xffff, type: 0x21}}, options.hue);
                 }
@@ -1434,22 +1456,31 @@ const converters = {
                         const colortemp = meta.message.hue_power_on_color_temperature;
                         await entity.write('lightingColorCtrl', {0x4010: {value: colortemp, type: 0x21}});
                         // Set color to default
-                        await entity.write('lightingColorCtrl', {0x0003: {value: 0xFFFF, type: 0x21}}, options.hue);
-                        await entity.write('lightingColorCtrl', {0x0004: {value: 0xFFFF, type: 0x21}}, options.hue);
+                        if (supports.colorXY) {
+                            await entity.write('lightingColorCtrl', {0x0003: {value: 0xFFFF, type: 0x21}}, options.hue);
+                            await entity.write('lightingColorCtrl', {0x0004: {value: 0xFFFF, type: 0x21}}, options.hue);
+                        }
                     } else if (meta.message.hasOwnProperty('hue_power_on_color')) {
                         const xy = utils.hexToXY(meta.message.hue_power_on_color);
                         value = {x: xy.x * 65535, y: xy.y * 65535};
 
                         // Set colortemp to default
-                        await entity.write('lightingColorCtrl', {0x4010: {value: 366, type: 0x21}});
+                        if (supports.colorTemperature) {
+                            await entity.write('lightingColorCtrl', {0x4010: {value: 366, type: 0x21}});
+                        }
 
                         await entity.write('lightingColorCtrl', {0x0003: {value: value.x, type: 0x21}}, options.hue);
                         await entity.write('lightingColorCtrl', {0x0004: {value: value.y, type: 0x21}}, options.hue);
                     } else {
                         // Set defaults for colortemp and color
-                        await entity.write('lightingColorCtrl', {0x4010: {value: 366, type: 0x21}});
-                        await entity.write('lightingColorCtrl', {0x0003: {value: 0xFFFF, type: 0x21}}, options.hue);
-                        await entity.write('lightingColorCtrl', {0x0004: {value: 0xFFFF, type: 0x21}}, options.hue);
+                        if (supports.colorTemperature) {
+                            await entity.write('lightingColorCtrl', {0x4010: {value: 366, type: 0x21}});
+                        }
+
+                        if (supports.colorXY) {
+                            await entity.write('lightingColorCtrl', {0x0003: {value: 0xFFFF, type: 0x21}}, options.hue);
+                            await entity.write('lightingColorCtrl', {0x0004: {value: 0xFFFF, type: 0x21}}, options.hue);
+                        }
                     }
                 }
             }

@@ -500,6 +500,19 @@ const devices = [
         ],
     },
     {
+        zigbeeModel: ['lumi.light.cwopcn02'],
+        model: 'XDD12LM',
+        vendor: 'Xiaomi',
+        description: 'Aqara Opple MX650',
+        extend: generic.light_onoff_brightness_colortemp,
+        fromZigbee: [
+            fz.brightness, fz.color_colortemp, fz.on_off, fz.xiaomi_bulb_interval,
+            fz.ignore_light_brightness_report, fz.ignore_light_color_colortemp_report,
+            fz.ignore_occupancy_report, fz.ignore_humidity_report,
+            fz.ignore_pressure_report, fz.ignore_temperature_report,
+        ],
+    },
+    {
         zigbeeModel: ['lumi.sensor_switch'],
         model: 'WXKG01LM',
         vendor: 'Xiaomi',
@@ -559,6 +572,27 @@ const devices = [
             return {'left': 1, 'right': 2, 'both': 3};
         },
         onEvent: xiaomi.prevent_reset,
+    },
+    {
+        zigbeeModel: ['lumi.switch.b2laus01'],
+        model: 'WS-USC02',
+        vendor: 'Xiaomi',
+        description: 'Aqara smart wall switch (no neutral, double rocker)',
+        supports: 'on/off',
+        fromZigbee: [fz.on_off],
+        toZigbee: [tz.on_off],
+        meta: {multiEndpoint: true, configureKey: 1},
+        endpoint: (device) => {
+            return {'top': 1, 'bottom': 2};
+        },
+        configure: async (device, coordinatorEndpoint) => {
+            const endpoint1 = device.getEndpoint(1);
+            await bind(endpoint1, coordinatorEndpoint, ['genOnOff']);
+            await configureReporting.onOff(endpoint1);
+            const endpoint2 = device.getEndpoint(2);
+            await bind(endpoint2, coordinatorEndpoint, ['genOnOff']);
+            await configureReporting.onOff(endpoint2);
+        },
     },
     {
         zigbeeModel: ['lumi.ctrl_neutral1'],
@@ -774,7 +808,7 @@ const devices = [
         fromZigbee: [
             fz.on_off, fz.xiaomi_power, fz.xiaomi_plug_state,
         ],
-        toZigbee: [tz.on_off],
+        toZigbee: [tz.on_off, tz.ZNCZ04LM_power_outage_memory],
     },
     {
         zigbeeModel: ['lumi.plug.maus01'],
@@ -5915,7 +5949,6 @@ const devices = [
             const endpoint = device.getEndpoint(1);
             await bind(endpoint, coordinatorEndpoint, ['genPowerCfg']);
             await configureReporting.batteryPercentageRemaining(endpoint);
-            await configureReporting.batteryAlarmState(endpoint);
         },
     },
     {
@@ -8953,6 +8986,15 @@ const devices = [
         fromZigbee: [fz.ias_contact_alarm_1, fz.battery],
         toZigbee: [],
     },
+    {
+        zigbeeModel: ['HORN-PIR--A3.9-E'],
+        model: 'LH-990F',
+        vendor: 'iHORN',
+        description: 'PIR motion sensor',
+        supports: 'occupancy',
+        fromZigbee: [fz.ias_occupancy_alarm_1],
+        toZigbee: [],
+    },
 
     // TCI
     {
@@ -9770,7 +9812,7 @@ const devices = [
         vendor: 'BTicino',
         description: 'Light switch with neutral',
         supports: 'on/off, led color',
-        fromZigbee: [fz.identify, fz.on_off],
+        fromZigbee: [fz.identify, fz.on_off, fz.K4003C_binary_input],
         toZigbee: [
             tz.on_off, tz.legrand_settingAlwaysEnableLed,
             tz.legrand_settingEnableLedIfOn, tz.legrand_identify,
